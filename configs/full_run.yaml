@@ -1,0 +1,14 @@
+# Full-scale contrastive pretraining. Only run once the pilot gate
+# (scripts/run_pilot.sh) reports GO.
+
+data_dir: data/processed/full
+finetune_data_dir: data/processed/full_labeled
+output_dir: outputs/full_pretrain
+
+patch_size: 48
+embed_dim: 256
+proj_dim: 128
+temperature: 0.07
+
+lr: 1.0e-4
+epochs: 200

@@ -1,0 +1,19 @@
+# Pilot: small-scale contrastive pretraining + branch-identity probe.
+# Goal: answer go/no-go on the full project within a day or two of compute.
+
+data_dir: data/processed/pilot   # ~30-50 preprocessed ImageCAS volumes
+output_dir: outputs/pilot
+
+patch_size: 32          # cube side length in voxels, centered on each graph node
+embed_dim: 128
+proj_dim: 64
+temperature: 0.07
+
+lr: 1.0e-4
+epochs: 20
+
+# Probe decision threshold: minimum probe-accuracy gain (contrastive vs.
+# randomly initialized baseline encoder) to declare the approach worth
+# scaling to full pretraining. Tune this before running for real — 0.10
+# is a placeholder, not a validated number.
+min_accuracy_gain: 0.10

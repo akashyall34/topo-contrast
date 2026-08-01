@@ -1,0 +1,12 @@
+data/raw/
+data/processed/
+*.npz
+*.pth
+*.ckpt
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+wandb/
+.env
+outputs/
+*.egg-info/
