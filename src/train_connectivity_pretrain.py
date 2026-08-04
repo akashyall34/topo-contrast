@@ -98,14 +98,25 @@ def train(cfg: dict):
     train_cases, val_cases = split_cases(data_dir, pretrain_cfg["val_fraction"], pretrain_cfg["seed"])
     print(f"train cases: {len(train_cases)}  val cases: {len(val_cases)}", flush=True)
 
-    num_workers = pretrain_cfg.get("num_workers", 4 if device.type == "cuda" else 0)
-    # Each DataLoader worker forks its own *separate* copy of the dataset,
+    # Default 0, not >0: the model is already moved to `device` (CUDA)
+    # before the DataLoader is ever iterated, and PyTorch's default
+    # multiprocessing start method on Linux is `fork` — forking a process
+    # that already holds an active CUDA context corrupts the child, which
+    # is exactly what a bare "DataLoader worker killed by signal" with no
+    # further Python traceback means (observed in practice on a real T4
+    # Colab run). This is a different, more fundamental problem than the
+    # cache-memory-multiplication issue `max_cache_size` guards against
+    # below — bounding the cache does not fix it. If num_workers>0 is
+    # requested anyway (e.g. via config, for a model large enough to
+    # actually benefit), `multiprocessing_context="spawn"` avoids the
+    # fork+CUDA corruption since spawned workers start a fresh
+    # interpreter rather than forking the CUDA-initialized parent.
+    num_workers = pretrain_cfg.get("num_workers", 0)
+    # Each DataLoader worker gets its own *separate* copy of the dataset,
     # including its own image cache — with shuffle=True, every worker
     # eventually touches most/all cases over an epoch, so an unbounded
-    # cache gets duplicated per worker (observed: 4 workers x ~2.9GB
-    # unbounded train-set cache OOM-killed a worker). Bound it only when
-    # workers exist; with num_workers=0 (single process, no forking)
-    # there's no multiplication risk, so an unbounded cache is fine there.
+    # cache gets duplicated per worker. Bound it only when workers exist;
+    # with num_workers=0 (single process) there's no multiplication risk.
     max_cache_size = 8 if num_workers > 0 else None
 
     t0 = time.time()
@@ -119,12 +130,16 @@ def train(cfg: dict):
 
     # pin_memory speeds up the host->device copy; num_workers>0 overlaps
     # CPU-side patch extraction with GPU compute instead of the GPU
-    # idling between batches.
+    # idling between batches. multiprocessing_context="spawn" only matters
+    # (and is only set) when num_workers>0 — see the comment above on why
+    # fork (the default) is unsafe once CUDA is already initialized.
     loader_kwargs = dict(
         num_workers=num_workers,
         pin_memory=(device.type == "cuda"),
         persistent_workers=(num_workers > 0),
     )
+    if num_workers > 0:
+        loader_kwargs["multiprocessing_context"] = "spawn"
     train_loader = DataLoader(train_dataset, batch_size=pretrain_cfg["batch_size"], shuffle=True, **loader_kwargs)
     val_loader = DataLoader(val_dataset, batch_size=pretrain_cfg["batch_size"], shuffle=False, **loader_kwargs)
 

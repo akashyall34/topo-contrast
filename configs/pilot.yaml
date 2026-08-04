@@ -75,6 +75,13 @@ pretrain:
   lr: 4.0e-3
   epochs: 15
   batch_size: 256
-  num_workers: 4  # only used when a GPU is available (see train_connectivity_pretrain.py)
+  # 0, not >0: forking DataLoader workers after CUDA is already
+  # initialized in the main process corrupts the child processes — this
+  # crashed a real Colab T4 run ("DataLoader worker killed by signal", no
+  # further traceback). train_connectivity_pretrain.py sets
+  # multiprocessing_context="spawn" automatically if you do raise this,
+  # which avoids that specific problem, but hasn't been verified on a
+  # real GPU run — leave at 0 unless you've confirmed spawn works first.
+  num_workers: 0
   val_fraction: 0.2
   seed: 0
