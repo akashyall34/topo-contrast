@@ -68,13 +68,17 @@ sampler:
 pretrain:
   embed_dim: 128
   hidden_dim: 128
-  # lr bumped 4x alongside batch_size (256 vs the original 64) — a rough
+  # lr bumped 2x alongside batch_size (128 vs the original 64) — a rough
   # heuristic (Adam doesn't need strict linear scaling like SGD, but some
-  # increase keeps convergence-per-epoch roughly similar with 4x fewer,
+  # increase keeps convergence-per-epoch roughly similar with fewer,
   # larger updates), not rigorously tuned for this pilot's scale.
-  lr: 4.0e-3
+  # 256 OOM'd a real Colab T4 GPU run; dropped to 128. If this still OOMs,
+  # go to 64 (the original, known-safe value) — there's no shame in it,
+  # this model is tiny enough that batch size barely affects wall-clock
+  # speed anyway (see earlier finding: this workload isn't compute-bound).
+  lr: 2.0e-3
   epochs: 15
-  batch_size: 256
+  batch_size: 128
   # 0, not >0: forking DataLoader workers after CUDA is already
   # initialized in the main process corrupts the child processes — this
   # crashed a real Colab T4 run ("DataLoader worker killed by signal", no
