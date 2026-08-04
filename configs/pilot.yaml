@@ -68,17 +68,26 @@ sampler:
 pretrain:
   embed_dim: 128
   hidden_dim: 128
-  # lr bumped 2x alongside batch_size (128 vs the original 64) — a rough
-  # heuristic (Adam doesn't need strict linear scaling like SGD, but some
-  # increase keeps convergence-per-epoch roughly similar with fewer,
-  # larger updates), not rigorously tuned for this pilot's scale.
-  # 256 OOM'd a real Colab T4 GPU run; dropped to 128. If this still OOMs,
-  # go to 64 (the original, known-safe value) — there's no shame in it,
-  # this model is tiny enough that batch size barely affects wall-clock
-  # speed anyway (see earlier finding: this workload isn't compute-bound).
-  lr: 2.0e-3
-  epochs: 15
-  batch_size: 128
+  # The actual bottleneck on every run so far (CPU or GPU) has been the
+  # per-batch Python loop, not compute — this model is too small to be
+  # compute-bound on anything. The fix that works regardless of whether
+  # CUDA is actually engaged: far fewer, far bigger batches, so the same
+  # data takes ~8x fewer loop iterations. 1024 was never tested for OOM;
+  # if it OOMs, halve it (512, then 256, then the known-safe 128) rather
+  # than reverting straight to 128.
+  #
+  # lr bumped alongside batch_size — a rough heuristic (Adam doesn't need
+  # strict linear scaling like SGD, but some increase keeps convergence-
+  # per-epoch roughly similar with fewer, larger updates), not rigorously
+  # tuned for this pilot's scale.
+  #
+  # epochs cut 15->8: the earlier local CPU run's val_acc had already
+  # mostly plateaued (~0.70-0.75) by epoch 5-8 — 8 epochs is enough for a
+  # directional pilot-gate answer; extend later only if the result is
+  # genuinely borderline.
+  lr: 4.0e-3
+  epochs: 8
+  batch_size: 1024
   # 0, not >0: forking DataLoader workers after CUDA is already
   # initialized in the main process corrupts the child processes — this
   # crashed a real Colab T4 run ("DataLoader worker killed by signal", no

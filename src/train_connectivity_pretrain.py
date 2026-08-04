@@ -157,8 +157,11 @@ def train(cfg: dict):
     # Print at least this often within an epoch, not just once at epoch end
     # — Colab (and similar hosted notebooks) can treat a cell with no
     # output for several minutes as idle and interrupt/disconnect the
-    # runtime, even though training is actively progressing.
-    log_every_n_batches = 20
+    # runtime, even though training is actively progressing. Must stay
+    # small relative to batches-per-epoch (currently ~18 at batch_size
+    # 1024) or it never fires at all within an epoch.
+    batches_per_epoch = -(-len(train_dataset) // pretrain_cfg["batch_size"])  # ceil div
+    log_every_n_batches = max(1, min(20, batches_per_epoch // 4))
 
     val_acc = 0.0
     for epoch in range(pretrain_cfg["epochs"]):
@@ -186,8 +189,10 @@ def train(cfg: dict):
                       f"running_loss={epoch_loss / n_batches:.4f}  ({elapsed:.1f}s elapsed)", flush=True)
 
         train_time = time.time() - epoch_t0
+        eval_batches = -(-len(val_dataset) // pretrain_cfg["batch_size"])  # ceil div
+        eval_log_every = max(1, min(20, eval_batches // 2))
         eval_t0 = time.time()
-        val_acc = evaluate(image_encoder, head, val_loader, device)
+        val_acc = evaluate(image_encoder, head, val_loader, device, log_every_n_batches=eval_log_every)
         eval_time = time.time() - eval_t0
         print(f"epoch {epoch + 1}/{pretrain_cfg['epochs']}  "
               f"train_loss={epoch_loss / max(n_batches, 1):.4f}  val_acc={val_acc:.4f}  "
