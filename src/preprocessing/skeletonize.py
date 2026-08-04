@@ -1,6 +1,6 @@
 """3D thinning of a binary vessel mask into a 1-voxel-wide centerline skeleton."""
 import numpy as np
-from skimage.morphology import skeletonize_3d
+from skimage.morphology import skeletonize
 
 
 def skeletonize_mask(binary_mask: np.ndarray) -> np.ndarray:
@@ -12,4 +12,6 @@ def skeletonize_mask(binary_mask: np.ndarray) -> np.ndarray:
     Returns:
         (D, H, W) bool array, True on skeleton voxels.
     """
-    return skeletonize_3d(binary_mask.astype(bool))
+    # skimage >= 0.19 merged the separate skeletonize_3d into skeletonize
+    # (n-dimensional); skeletonize_3d was removed entirely in 0.25.
+    return skeletonize(binary_mask.astype(bool))

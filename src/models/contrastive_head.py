@@ -1,4 +1,7 @@
-"""Projection heads mapping image/graph embeddings into a shared contrastive space."""
+"""DEPRECATED — superseded design, kept for reference only, not wired into
+any current entrypoint. See docs/PROJECT.md Section 1.
+
+Projection heads mapping image/graph embeddings into a shared contrastive space."""
 import torch.nn as nn
 
 

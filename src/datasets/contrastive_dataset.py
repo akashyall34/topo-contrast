@@ -1,4 +1,11 @@
-"""Pairs each vessel-graph node with a 3D image patch centered on its voxel
+"""DEPRECATED — superseded design, kept for reference only, not wired into
+any current entrypoint. See docs/PROJECT.md Section 1: aligning an image
+patch against the graph node extracted from that same patch/volume injects
+no information the image encoder couldn't already get via reconstruction,
+since the graph is a deterministic function of the same intensity data.
+Current pretraining uses src/datasets/connectivity_dataset.py instead.
+
+Pairs each vessel-graph node with a 3D image patch centered on its voxel
 coordinate, for image<->graph contrastive pretraining.
 
 Expects preprocessed volumes under `data/processed/<case_id>/`:
@@ -12,6 +19,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
+from src.datasets.patch_utils import extract_patch
 from src.preprocessing.graph_extraction import build_vessel_graph, graph_to_pyg_features
 
 
@@ -24,14 +32,6 @@ class ContrastiveVesselDataset(Dataset):
     def __len__(self):
         return len(self.cases)
 
-    def _extract_patch(self, image: np.ndarray, coord: tuple[int, int, int]) -> np.ndarray:
-        r = self.patch_size // 2
-        z, y, x = coord
-        padded = np.pad(image, r, mode="constant", constant_values=0)
-        z, y, x = z + r, y + r, x + r  # shift for padding
-        patch = padded[z - r:z + r, y - r:y + r, x - r:x + r]
-        return patch
-
     def __getitem__(self, idx):
         case = self.cases[idx]
         image = np.load(case / "image.npy")
@@ -42,7 +42,7 @@ class ContrastiveVesselDataset(Dataset):
         node_feats, edge_index, edge_feats = graph_to_pyg_features(vg)
 
         patches = np.stack([
-            self._extract_patch(image, vg.node_coords[n]) for n in sorted(vg.node_coords)
+            extract_patch(image, vg.node_coords[n], self.patch_size) for n in sorted(vg.node_coords)
         ])[:, None, ...]  # (N, 1, d, h, w)
 
         return {

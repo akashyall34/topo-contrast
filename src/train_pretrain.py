@@ -1,4 +1,8 @@
-"""Pilot / full contrastive pretraining loop.
+"""DEPRECATED — superseded design, kept for reference only, not wired into
+any current entrypoint. See docs/PROJECT.md Section 1. Current pretraining
+uses src/train_connectivity_pretrain.py instead.
+
+Pilot / full contrastive pretraining loop.
 
 Pilot mode (`configs/pilot.yaml`) runs this on ~30-50 volumes for a few
 epochs, then hands the trained image encoder to

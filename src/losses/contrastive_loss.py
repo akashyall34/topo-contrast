@@ -1,4 +1,7 @@
-"""InfoNCE loss aligning image-patch embeddings with graph-node embeddings.
+"""DEPRECATED — superseded design, kept for reference only, not wired into
+any current entrypoint. See docs/PROJECT.md Section 1.
+
+InfoNCE loss aligning image-patch embeddings with graph-node embeddings.
 
 Positive pair: image patch centered on node i <-> graph embedding of node i
 (same volume). Negatives: all other nodes in the batch, including nodes

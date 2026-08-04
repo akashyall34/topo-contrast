@@ -1,4 +1,9 @@
-"""Graph attention encoder over the vessel bifurcation graph.
+"""DEPRECATED — superseded design, kept for reference only, not wired into
+any current entrypoint. See docs/PROJECT.md Section 1. Current pretraining
+(src/datasets/connectivity_dataset.py) uses the vessel graph only to
+generate pair labels; no graph encoder is trained or run at inference.
+
+Graph attention encoder over the vessel bifurcation graph.
 
 Produces one embedding per node (bifurcation/endpoint), to be contrasted
 against an image-patch embedding centered on that same node's voxel

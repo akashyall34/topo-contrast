@@ -1,8 +1,22 @@
-# Pilot: small-scale contrastive pretraining + branch-identity probe.
+# Pilot: small-scale connectivity-prediction pretraining + probe.
 # Goal: answer go/no-go on the full project within a day or two of compute.
+#
+# `patch_size`/`embed_dim`/`proj_dim`/`temperature`/`lr`/`epochs`/
+# `min_accuracy_gain` below belong to the superseded image-node contrastive
+# pipeline (src/train_pretrain.py, src/probes/branch_identity_probe.py as
+# they currently stand — see docs/PROJECT.md Section 1) and are unchanged
+# in this pass. `sampler:` is the new connectivity-prediction config,
+# consumed by src/datasets/connectivity_dataset.py and
+# scripts/check_sampling_feasibility.py (pilot-gate step 1).
 
 data_dir: data/processed/pilot   # ~30-50 preprocessed ImageCAS volumes
-output_dir: outputs/pilot
+# NOT outputs/pilot (inside the OneDrive-synced repo folder): checkpoint
+# writes every epoch to a OneDrive-synced path can get intercepted mid-sync
+# by the OneDrive file-provider daemon and hang the writing process
+# indefinitely (observed: a training run stalled at 0% CPU, RSS collapsed
+# from 3GB to 10MB, stuck in "UN" uninterruptible-I/O-wait state with no
+# progress). Writing outside the synced folder avoids this entirely.
+output_dir: /tmp/topo-contrast-outputs/pilot
 
 patch_size: 32          # cube side length in voxels, centered on each graph node
 embed_dim: 128
@@ -17,3 +31,50 @@ epochs: 20
 # scaling to full pretraining. Tune this before running for real — 0.10
 # is a placeholder, not a validated number.
 min_accuracy_gain: 0.10
+
+# Connectivity-prediction pair sampler (pilot-gate step 1 and onward).
+# near_radius/far_radius are in voxels; must both exceed crop_size (enforced
+# by SamplerConfig.__post_init__) since every pool requires non-overlapping
+# crops. Retuned against case 1's actual (post-opening) graph — 76 nodes,
+# 3 bifurcations, edge lengths up to ~111 voxels, mean ~17 — after the
+# original placeholders (near_radius=40, far_radius=150) failed pilot-gate
+# step 1 outright (0/20 pairs at any pool). Only checked on one case;
+# re-run scripts/check_sampling_feasibility.py across the full pilot batch
+# before trusting these.
+sampler:
+  crop_size: 8
+  near_radius: 16.0
+  far_radius: 40.0
+  hop_k: 2
+  pairs_per_pool: 200
+  min_pool_size: 20
+  # Cases whose hard_negative/hard_positive pool can't reach pairs_per_pool
+  # burn the *entire* attempts budget before giving up, since the loop only
+  # stops early on hitting pairs_per_pool, not on plateauing. At 200 this
+  # made src/train_connectivity_pretrain.py's one-time dataset construction
+  # take 25+ minutes and grow memory unboundedly. Dropping to 30 fixed the
+  # runtime but was too aggressive — a sweep across all 38 cases (near=16/
+  # far=40, the values below, unchanged) showed 100 recovers 37/38 cases
+  # OK vs. many more failures at 30; the radii themselves were fine, the
+  # earlier failures were from cutting the attempt budget too hard, not
+  # from bad near_radius/far_radius. Larger radii (tried 24/50, 24/60,
+  # 32/70) did worse (33-36/38), not better. Any case still below
+  # min_pool_size at 100 is skipped (with a warning), not fatal.
+  max_attempts_multiplier: 100
+
+# Connectivity-prediction encoder training (src/train_connectivity_pretrain.py).
+# val_fraction is a case-level split (not pair-level — see docs/PROJECT.md
+# and the plan rationale: pairs from the same case are correlated).
+pretrain:
+  embed_dim: 128
+  hidden_dim: 128
+  # lr bumped 4x alongside batch_size (256 vs the original 64) — a rough
+  # heuristic (Adam doesn't need strict linear scaling like SGD, but some
+  # increase keeps convergence-per-epoch roughly similar with 4x fewer,
+  # larger updates), not rigorously tuned for this pilot's scale.
+  lr: 4.0e-3
+  epochs: 15
+  batch_size: 256
+  num_workers: 4  # only used when a GPU is available (see train_connectivity_pretrain.py)
+  val_fraction: 0.2
+  seed: 0
